@@ -1,8 +1,8 @@
 From f0088afe0bcf5388db5cc470245c2822e39d5911 Mon Sep 17 00:00:00 2001
 From: primary-null <285952344+primary-null@users.noreply.github.com>
 Date: Sun, 15 Nov 2026 22:10:53 -0600
-Subject: [PATCH] mediatek: filogic: rt-ax57go: fix WAN PHY calibration, keys
- and WAN MAC
+Subject: [PATCH 1/2] mediatek: filogic: rt-ax57go: fix WAN PHY calibration,
+ keys and WAN MAC
 
 Three fixes for the ASUS RT-AX57 Go support, found while installing and
 testing on a real unit (H/W A1, stock 3.0.0.6.102_56747):

@@ -1,0 +1,49 @@
+From 388ef2502c827c3dea2525b0fbc382b8fca1e82b Mon Sep 17 00:00:00 2001
+From: primary-null <285952344+primary-null@users.noreply.github.com>
+Date: Sun, 15 Nov 2026 22:33:48 -0600
+Subject: [PATCH 2/2] mediatek: filogic: rt-ax57go: add blue status LED
+
+The status LED is a red/green/blue LED. Stock firmware drives the three
+channels as PWM0/PWM1/PWM2 (nvram led_red_gpio/led_green_gpio/
+led_blue_gpio = 0x10c8/0x10c9/0x10ca, pinctrl groups pwm0_0/pwm1_0/pwm2),
+i.e. GPIO 13/14/7, all active-low. Only red and green were described.
+
+With GPIO 7 unclaimed, the blue channel glows permanently while OpenWrt
+is running, so the LED shows blue instead of the green "running" state.
+Describe the blue channel and keep it off by default.
+
+Verified on hardware by driving GPIO 7 through sysfs: 0 = blue on,
+1 = blue off.
+
+Signed-off-by: primary-null <285952344+primary-null@users.noreply.github.com>
+---
+ .../linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts   | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts b/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts
+index 535f4db7ce..151e8f1809 100644
+--- a/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts
++++ b/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts
+@@ -71,6 +71,19 @@
+ 			default-state = "on";
+ 		};
+ 
++		/*
++		 * Third channel of the red/green/blue status LED. Stock firmware
++		 * drives red/green/blue as PWM0/PWM1/PWM2 (nvram led_red_gpio,
++		 * led_green_gpio, led_blue_gpio = 0x10c8/0x10c9/0x10ca) with the
++		 * pwm0_0/pwm1_0/pwm2 pin groups, i.e. GPIO 13/14/7.
++		 */
++		led1_blue: status_blue {
++			function = LED_FUNCTION_STATUS;
++			color = <LED_COLOR_ID_BLUE>;
++			gpios = <&pio 7 GPIO_ACTIVE_LOW>;
++			default-state = "off";
++		};
++
+ 	};
+ 
+ 	timer {
+-- 
+2.53.0
+

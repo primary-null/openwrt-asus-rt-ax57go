@@ -1,14 +1,14 @@
 # OpenWrt on the ASUS RT-AX57 Go: tested install + fixes
 
 This repository documents a complete, tested OpenWrt install on an **ASUS RT-AX57 Go** (MediaTek
-MT7981B). It also provides three small fixes to the community device support. The fixes were needed
-to get the WAN PHY, the buttons and the MAC addresses working.
+MT7981B). It also provides small fixes to the community device support. The fixes were needed
+to get the WAN PHY, the buttons, the MAC addresses and the status LED working.
 
 - Base: [jonathan-sturges/openwrt](https://github.com/jonathan-sturges/openwrt), branch
   `asus_rt-ax57go`, commit `30865d9` ("mediatek: filogic: add support for ASUS RT-AX57GO"). That
   branch continues the stalled upstream pull request
   [openwrt/openwrt#15055](https://github.com/openwrt/openwrt/pull/15055).
-- Fixes: [`patches/`](patches/) (one `git format-patch` commit, apply with `git am`).
+- Fixes: [`patches/`](patches/) (`git format-patch` series, apply with `git am`).
 - Install path: stock web UI firmware upload of an OpenWrt initramfs `.trx`, then `sysupgrade`.
   **Confirmed on stock firmware 3.0.0.6.102_56747**, H/W version A1. No serial console or
   bootloader changes are needed.
@@ -29,7 +29,8 @@ From a prior-art check of the OpenWrt forum thread, PR #15055 and the fork (deta
   (stock 3.0.0.6.102_56747). The forum thread only predicted it "should" work. There was no
   public test report for fork commit `30865d9` before this one.
 - **New diagnosis:** three regressions in fork commit `30865d9` (WAN PHY calibration, dead reset
-  button, blank WAN MAC). The fork's `25.12-asus-rt-ax57go` branch has the same DTS and
+  button, blank WAN MAC), plus a missing blue LED channel (bug 4) found by comparing against the
+  stock ASUS configuration and confirmed on hardware. The fork's `25.12-asus-rt-ax57go` branch has the same DTS and
   `02_network` code, so it very likely has the same bugs. That branch was not built or tested here.
 - **Not new:** the fixes. Two of them restore what upstream PR #15055 already did (efuse
   `phy_calibration`, `CI_UBIPART="UBI_DEV"` + `mtd_get_mac_binary_ubi`), and the third uses a
@@ -52,7 +53,7 @@ From a prior-art check of the OpenWrt forum thread, PR #15055 and the fork (deta
 | MAC addresses | ✅ Correct **with the patch** | LAN = label MAC, WAN = label MAC + 1, persistent. Without it the WAN MAC is random on every boot. |
 | `gpio-keys` driver (reset button, VPN switch) | ✅ Binds **with the patch** | Without the patch the whole `gpio-keys` device fails, so the reset button is also dead. |
 | Reset button / VPN switch (physical press) | ❓ Not tested | |
-| LEDs | ✅ Detected | `green:power`, `red:status`, `white:status`, `mt76-phy0`, `mt76-phy1`. |
+| LEDs | ✅ Works **with patch 0002** | `green:power`, `red:status`, `white:status`, `mt76-phy0`, `mt76-phy1`, plus `blue:status` from patch 0002. Without it the blue channel glows permanently (bug 4). |
 | USB | ⚠️ Partially tested | `xhci-mtk` probes and the USB 3.2 root hubs register. No USB device was plugged in, so storage was not tested. |
 | Config persistence across reboot | ✅ Works | Config, Wi-Fi, root password and MACs persist. |
 | Factory (calibration/MAC) partition preserved | ✅ Verified | Factory md5 was identical before and after install. |
@@ -123,16 +124,17 @@ The overlay (`rootfs_data`, UBIFS) has about 90 MB free.
 
 ---
 
-## The three bugs and their fixes
+## The bugs and their fixes
 
-All three were found in commit `30865d9` of the fork. At the time of testing, the fork branch had
-no newer commits. All three fixes are in one patch, a single commit with a full explanation:
+Bugs 1-3 were found in commit `30865d9` of the fork. At the time of testing, the fork branch had
+no newer commits. Apply the patches in order with `git am`:
 
-[`patches/0001-mediatek-filogic-rt-ax57go-fix-WAN-PHY-calibration-k.patch`](patches/0001-mediatek-filogic-rt-ax57go-fix-WAN-PHY-calibration-k.patch)
+| Patch | Fixes |
+|---|---|
+| [`0001-mediatek-filogic-rt-ax57go-fix-WAN-PHY-calibration-k.patch`](patches/0001-mediatek-filogic-rt-ax57go-fix-WAN-PHY-calibration-k.patch) | Bugs 1-3: WAN PHY calibration and the `gpio-keys` keycode (DTS), WAN MAC (`02_network`) |
+| [`0002-mediatek-filogic-rt-ax57go-add-blue-status-LED.patch`](patches/0002-mediatek-filogic-rt-ax57go-add-blue-status-LED.patch) | Bug 4: blue channel of the status LED (DTS) |
 
-It touches only `target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts` (bugs 1 and 2) and
-`target/linux/mediatek/filogic/base-files/etc/board.d/02_network` (bug 3). It is offered for
-upstreaming into the fork or into PR #15055.
+Both are offered for upstreaming into the fork or into PR #15055.
 
 ### Bug 1: WAN PHY calibration fails (most important)
 
@@ -196,6 +198,28 @@ asus,rt-ax57go)
 ```
 
 **After the fix:** LAN = label MAC, WAN = label MAC + 1, and both persist across reboots.
+
+### Bug 4: the status LED glows blue all the time
+
+**Symptom:** while OpenWrt is running, the front LED shows **blue** instead of the green "running"
+state, even though `green:power` is the only LED that is on.
+
+**Root cause:** the front LED is an RGB LED. Stock firmware drives red/green/blue as PWM channels
+0/1/2 (nvram `led_red_gpio` / `led_green_gpio` / `led_blue_gpio` = `0x10c8` / `0x10c9` / `0x10ca`;
+pinctrl groups `pwm0_0` / `pwm1_0` / `pwm2`), i.e. **GPIO 13 / 14 / 7, all active-low**. The board
+DTS only described red and green. GPIO 7 is left unclaimed, and in that state the blue channel
+glows.
+
+**Verified on hardware:** with all other LEDs off, driving GPIO 7 through sysfs showed `0` = blue on
+and `1` = blue off. With green on and blue off, the LED shows green.
+
+**Fix** (patch 0002): add a `status_blue` `gpio-led` on GPIO 7, `GPIO_ACTIVE_LOW`, `default-state =
+"off"`. Not yet flashed on the test unit; the DTS compiles and the GPIO behaviour was confirmed by
+hand.
+
+Side note for PR #15055: a reviewer suggested that the reset button and the green status LED share
+GPIO 1. The stock configuration says otherwise: reset is GPIO 1 (active-low), and green is PWM
+channel 1, which is GPIO 14. The likely mix-up is "PWM1" vs "GPIO 1".
 
 ---
 
@@ -382,7 +406,7 @@ Reports from other units or other stock firmware versions are welcome. Please op
 ```
 README.md                 this file
 docs/BUILD.md             how to rebuild the images with the patches
-patches/                  fix on top of jonathan-sturges/openwrt@30865d9 (git am)
+patches/                  fixes on top of jonathan-sturges/openwrt@30865d9 (git am)
 scripts/backup-stock.sh   verified full flash backup from stock firmware over SSH
 notes/                    raw findings, build checksums, package manifest
 ```
