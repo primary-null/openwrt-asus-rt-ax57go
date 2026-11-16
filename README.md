@@ -395,7 +395,7 @@ Tested on one unit on 2026-11-15. Build: OpenWrt SNAPSHOT r36793, Linux 6.18.54,
 - [ ] LAN throughput at 1 Gbps (needs a gigabit test client).
 - [ ] Web-UI `.trx` install on newer stock firmware (for example 3.0.0.6.102_57206). Only
       3.0.0.6.102_56747 is confirmed.
-- [ ] Send the fixes to the fork and to [openwrt/openwrt#15055](https://github.com/openwrt/openwrt/pull/15055).
+- [x] Fixes sent to the fork as [jonathan-sturges/openwrt#2](https://github.com/jonathan-sturges/openwrt/pull/2), and a test report posted on [openwrt/openwrt#15055](https://github.com/openwrt/openwrt/pull/15055#issuecomment-6907554431).
 
 Reports from other units or other stock firmware versions are welcome. Please open an issue.
 
