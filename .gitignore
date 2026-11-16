@@ -1,0 +1,22 @@
+# Firmware images and archives (never commit binaries or flash dumps)
+*.bin
+*.trx
+*.img
+*.zip
+
+# Flash backups made with scripts/backup-stock.sh (contain MACs, credentials, calibration)
+backups/
+*.part
+
+# Anything holding login details
+*LOGIN*
+*login*
+
+# QR codes (e.g. Wi-Fi credential QR images)
+*.png
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+*~
+*.swp

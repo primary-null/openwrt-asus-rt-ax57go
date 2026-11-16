@@ -1,0 +1,71 @@
+From f0088afe0bcf5388db5cc470245c2822e39d5911 Mon Sep 17 00:00:00 2001
+From: primary-null <285952344+primary-null@users.noreply.github.com>
+Date: Sun, 15 Nov 2026 22:10:53 -0600
+Subject: [PATCH] mediatek: filogic: rt-ax57go: fix WAN PHY calibration, keys
+ and WAN MAC
+
+Three fixes for the ASUS RT-AX57 Go support, found while installing and
+testing on a real unit (H/W A1, stock 3.0.0.6.102_56747):
+
+1. WAN PHY: the board DTS overrode the internal GbE PHY's
+   "phy-cal-data" with the Wi-Fi pre-calibration blob in Factory
+   (precal_factory_1010, 0x6f010 bytes). mt798x_phy_calibration() then
+   fails with "invalid efuse data" (-EINVAL) and the port falls back to
+   the Generic PHY driver, uncalibrated. Drop the override so the SoC
+   efuse cell (phy_calibration, efuse 0x8dc) from mt7981b.dtsi applies.
+
+2. gpio-keys: the vpn_switch node had no linux,code, so gpio-keys failed
+   to probe ("Button node 'vpn_switch' without keycode", -EINVAL) and
+   took the reset button down with it. Add linux,code = <BTN_0>.
+
+3. MAC: Factory is a UBI volume on UBI_DEV, not an MTD partition, so
+   mtd_get_mac_binary returned nothing and the WAN device got
+   macaddr ':' (random MAC every boot). Read it with
+   mtd_get_mac_binary_ubi and CI_UBIPART="UBI_DEV".
+
+Tested: WAN links at 1 Gbps with the MediaTek MT7981 PHY driver,
+gpio-keys binds, LAN = label MAC and WAN = label MAC + 1 across reboots.
+
+Signed-off-by: primary-null <285952344+primary-null@users.noreply.github.com>
+---
+ target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts           | 3 +--
+ .../linux/mediatek/filogic/base-files/etc/board.d/02_network   | 2 +-
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts b/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts
+index 02c00915b4..535f4db7ce 100644
+--- a/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts
++++ b/target/linux/mediatek/dts/mt7981b-asus-rt-ax57go.dts
+@@ -42,6 +42,7 @@
+ 		vpn_switch {
+ 			label = "vpn_switch";
+ 			gpios = <&pio 0 GPIO_ACTIVE_HIGH>;
++			linux,code = <BTN_0>;
+ 			linux,input-type = <EV_SW>;
+ 		};
+ 	};
+@@ -112,8 +113,6 @@
+ 			compatible = "ethernet-phy-id03a2.9461";
+ 			reg = <0>;
+ 			phy-mode = "gmii";
+-			nvmem-cells = <&precal_factory_1010>;
+-			nvmem-cell-names = "phy-cal-data";
+ 		};
+ 
+ 		en8801sc: ethernet-phy@24 {
+diff --git a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+index e2a671ba10..e2e5caadff 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
++++ b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+@@ -306,7 +306,7 @@ mediatek_setup_macs()
+ 		label_mac=$wan_mac
+ 		;;
+ 	asus,rt-ax57go)
+-		label_mac=$(mtd_get_mac_binary "Factory" 0x4)
++		label_mac=$(CI_UBIPART="UBI_DEV" mtd_get_mac_binary_ubi "Factory" 0x4)
+ 		lan_mac=$label_mac
+ 		wan_mac=$(macaddr_add "$lan_mac" 1)
+ 		;;
+-- 
+2.53.0
+

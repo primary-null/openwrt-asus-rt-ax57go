@@ -1,0 +1,3 @@
+# Keep shell scripts and patches with LF line endings on every platform
+*.sh    text eol=lf
+*.patch -text
