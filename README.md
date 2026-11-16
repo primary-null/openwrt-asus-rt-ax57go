@@ -12,7 +12,8 @@ to get the WAN PHY, the buttons, the MAC addresses and the status LED working.
 - Install path: stock web UI firmware upload of an OpenWrt initramfs `.trx`, then `sysupgrade`.
   **Confirmed on stock firmware 3.0.0.6.102_56747**, H/W version A1. No serial console or
   bootloader changes are needed.
-- Tested on one unit on 2026-11-15.
+- Tested on one unit on 2026-11-15/16. Full results, including real phones, a 1-hour soak and reboot tests, are in
+  [docs/TEST-RESULTS.md](docs/TEST-RESULTS.md). A visual summary is in [docs/dashboard.html](docs/dashboard.html).
 
 > **This is not official OpenWrt support.** This device is not in an OpenWrt release. You use
 > these images and instructions at your own risk. Before you flash anything, back up your flash
@@ -52,7 +53,8 @@ From a prior-art check of the OpenWrt forum thread, PR #15055 and the fork (deta
 | Wi-Fi 5 GHz (phy1) | ✅ Works | HE80, 2 spatial streams, 1200.9 Mbit/s link rate (HE-MCS 11) in both directions. |
 | MAC addresses | ✅ Correct **with the patch** | LAN = label MAC, WAN = label MAC + 1, persistent. Without it the WAN MAC is random on every boot. |
 | `gpio-keys` driver (reset button, VPN switch) | ✅ Binds **with the patch** | Without the patch the whole `gpio-keys` device fails, so the reset button is also dead. |
-| Reset button / VPN switch (physical press) | ❓ Not tested | |
+| Reset button (physical short press) | ✅ Reboots, settings kept | Confirmed by timing: the router rebooted when the button was pressed. |
+| VPN switch (physical flip) | ❓ Not confirmed yet | `gpio-keys` binds and its IRQ is registered |
 | LEDs | ✅ Works **with patch 0002** | `green:power`, `red:status`, `white:status`, `mt76-phy0`, `mt76-phy1`, plus `blue:status` from patch 0002. Without it the blue channel glows permanently (bug 4). |
 | USB | ⚠️ Partially tested | `xhci-mtk` probes and the USB 3.2 root hubs register. No USB device was plugged in, so storage was not tested. |
 | Config persistence across reboot | ✅ Works | Config, Wi-Fi, root password and MACs persist. |
@@ -214,8 +216,8 @@ glows.
 and `1` = blue off. With green on and blue off, the LED shows green.
 
 **Fix** (patch 0002): add a `status_blue` `gpio-led` on GPIO 7, `GPIO_ACTIVE_LOW`, `default-state =
-"off"`. Not yet flashed on the test unit; the DTS compiles and the GPIO behaviour was confirmed by
-hand.
+"off"`. Flashed and running on the test unit: `blue:status` is registered and off, and the front LED
+now shows green while running instead of blue.
 
 Side note for PR #15055: a reviewer suggested that the reset button and the green status LED share
 GPIO 1. The stock configuration says otherwise: reset is GPIO 1 (active-low), and green is PWM
@@ -387,7 +389,9 @@ Tested on one unit on 2026-11-15. Build: OpenWrt SNAPSHOT r36793, Linux 6.18.54,
 
 ## Open items
 
-- [ ] Physical reset button press and VPN switch events (`gpio-keys` now binds, but untested).
+- [x] Physical reset short press reboots, and settings are kept.
+- [ ] VPN switch flip, captured live.
+- [ ] 2.4 GHz performance from another room (close-range results look like receiver overload; see docs/TEST-RESULTS.md).
 - [ ] USB storage.
 - [ ] ASUS rescue mode (Firmware Restoration / TFTP) on this model.
 - [ ] Going back to stock firmware from OpenWrt.
